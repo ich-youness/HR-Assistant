@@ -8,16 +8,17 @@ from agno.tools.gmail import GmailTools
 from agno.team import Team
 from agno.storage.postgres import PostgresStorage
 from pyairtable import Table
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, jsonify
 from pyngrok import ngrok
 import uuid
 import threading
 import time
 import logging
+from flask_cors import CORS
 
 # Set up logging
 # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-# logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -37,6 +38,8 @@ request_table = Table(AIRTABLE_TOKEN, BASE_ID, "holiday_requests")
 
 # Flask app for approval/disapproval
 app = Flask(__name__)
+
+CORS(app, resources={r"/chat": {"origins": "http://localhost:8080"}})
 
 APPROVAL_PAGE = """
 <!DOCTYPE html>
@@ -106,19 +109,37 @@ def process_request(request_id):
         # logger.info(f"Updated request {request_id} with status: {action}")
         # Trigger approval agent to notify employee
         response = approval_agent.run(f"Process holiday request {request_id} with action {action}", markdown=True)
-        # logger.info(f"Approval agent response: {response.content}")
+        print(response.content)
+        logger.info(f"Approval agent response: {response.content}")
         return f"Request {action}d successfully. The employee will be notified."
     except Exception as e:
         # logger.error(f"Error processing request {request_id}: {str(e)}")
         return f"Error processing request: {str(e)}", 500
 
+@app.route('/chat', methods=['POST'])
+def chat_handler():
+    try:
+        data = request.get_json()
+        message = data.get("message")
+
+        if not message:
+            return jsonify({"error": "Missing message"}), 400
+
+        # Call the team agent
+        response = ChatBot_Team.run(message, markdown=True)
+
+        return jsonify({"response": response.content})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 def start_flask():
     # logger.info("Starting Flask app on port 5001")
-    app.run(port=5001)
+    app.run(port=5000)
 
 # Start ngrok and Flask in a separate thread
 ngrok.set_auth_token(NGROK_AUTH_TOKEN)
-public_url = ngrok.connect(5001, bind_tls=True).public_url
+public_url = ngrok.connect(5000, bind_tls=True).public_url
 # logger.info(f"ngrok public URL: {public_url}")
 threading.Thread(target=start_flask, daemon=True).start()
 time.sleep(2)  # Wait for Flask to start
@@ -277,7 +298,7 @@ approval_agent = Agent(
     - Your job is to process holiday request outcomes (approve or disapprove) from the Airtable `holiday_requests` table.
     - For each request:
         - Retrieve the request by `request_id` using a filter formula `{{request_id}}='{request_id}'` to get `employee_id`, `full_name`, `requested_days`, and `status`.
-        - Use `get_employee_holiday` to get the employee’s email for notifications using the `employee_id` retrieved earlier.
+        - Use `get_employee_holiday` to get the employee’s email for notifications using the `employee_id`.
         - If `status` is 'approved':
             - Use `update_holiday_taken` to increment `holidays_taken` by `requested_days` and update `last_holiday_taken`.
             - Send an email to the employee’s email confirming approval.
@@ -364,10 +385,17 @@ ChatBot_Team = Team(
 )
 
 # Main interaction loop
-while True:
-    user_input = input("You: ")
-    if user_input.lower() in ["exit", "quit"]:
-        print("Bot: Goodbye!")
-        break
-    response = ChatBot_Team.run(user_input, markdown=True)
-    print("Bot:", response.content)
+# while True:
+#     user_input = input("You: ")
+#     if user_input.lower() in ["exit", "quit"]:
+#         print("Bot: Goodbye!")
+#         break
+#     response = ChatBot_Team.run(user_input, markdown=True)
+#     print("Bot:", response.content)
+
+
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    print("Shutting down.")
