@@ -16,8 +16,6 @@ import time
 import logging
 from flask_cors import CORS
 
-# Set up logging
-# logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -29,7 +27,7 @@ api_key_openai = os.getenv("api_key_openai2")
 AIRTABLE_TOKEN = os.getenv("AIRTABLE_API")
 BASE_ID = os.getenv("AIRTABLE_BASE_ID")
 NGROK_AUTH_TOKEN = os.getenv("NGROK_AUTH_TOKEN")
-HR_EMAIL = "younessichen11@gmail.com" #os.getenv("HR_EMAIL")
+HR_EMAIL = os.getenv("HR_EMAIL")
 
 # Airtable table configurations
 holiday_table = Table(AIRTABLE_TOKEN, BASE_ID, "employee_holidays")
@@ -249,7 +247,7 @@ holiday_agent = Agent(
     tools=[
         FileTools(),
         CalculatorTools(),
-        GmailTools(credentials_path=r"D:\Agno\HR_Assistant\client_secret.json"),
+        GmailTools(credentials_path=r"client_secret.json"),
         get_employee_holiday,
         create_holiday_request
     ],
@@ -286,7 +284,7 @@ approval_agent = Agent(
     model=OpenAIChat(id=id_openai, api_key=api_key_openai),
     markdown=True,
     tools=[
-        GmailTools(credentials_path=r"D:\Agno\HR_Assistant\client_secret.json"),
+        GmailTools(credentials_path=r"client_secret.json"),
         get_employee_holiday,
         update_holiday_taken
     ],
@@ -316,7 +314,7 @@ project_agent = Agent(
     model=OpenAIChat(id=id_openai, api_key=api_key_openai),
     markdown=True,
     tools=[
-        GmailTools(credentials_path=r"D:\Agno\HR_Assistant\client_secret.json"),
+        GmailTools(credentials_path=r"client_secret.json"),
         FileTools(),
         get_employee_project,
         update_next_project
@@ -349,7 +347,7 @@ project_agent = Agent(
 )
 
 # Chatbot Team Manager
-db_url = "postgresql+psycopg://postgres:bibi@localhost:5432/ai"
+db_url = "postgresql+psycopg://postgres:password@localhost:5432/ai"
 ChatBot_Team = Team(
     name="HR Assistant Team Manager",
     members=[holiday_agent, project_agent, approval_agent],
@@ -383,15 +381,6 @@ ChatBot_Team = Team(
     Always strive to delegate clearly and efficiently, ensuring accurate responses from the appropriate domain expert.
     """
 )
-
-# Main interaction loop
-# while True:
-#     user_input = input("You: ")
-#     if user_input.lower() in ["exit", "quit"]:
-#         print("Bot: Goodbye!")
-#         break
-#     response = ChatBot_Team.run(user_input, markdown=True)
-#     print("Bot:", response.content)
 
 
 try:
